@@ -1,8 +1,8 @@
 From 77cad70b335e91164df67c623512e9266c66a701 Mon Sep 17 00:00:00 2001
 From: Dusty Little <dlittle@toyatech.net>
 Date: Wed, 3 Oct 2012 12:22:12 -0500
-Subject: [PATCH] Allow the 'use' and 'active_check_enabled' attributes to be
- set via extra_service_conf for legacy checks
+Subject: [PATCH 1/2] Allow the 'use' and 'active_check_enabled' attributes to
+ be set via extra_service_conf for legacy checks
 
 ---
  modules/check_mk.py | 31 +++++++++++++++++++++++++++----
@@ -60,6 +60,69 @@ index 4491a82..fa14550 100755
  
      # legacy checks via active_checks
      actchecks = []
+-- 
+1.7.11.2
+
+
+From 038f548ea51c6b80e238e7d66dfb8abf0b3f2436 Mon Sep 17 00:00:00 2001
+From: Dusty Little <dlittle@toyatech.net>
+Date: Wed, 3 Oct 2012 13:28:02 -0500
+Subject: [PATCH 2/2] Add extra_service_conf_of_dict and extra_conf_of_dict
+ functions
+
+---
+ modules/check_mk.py | 31 +++++++++++++++++++++++++++++++
+ 1 file changed, 31 insertions(+)
+
+diff --git a/modules/check_mk.py b/modules/check_mk.py
+index fa14550..f78972a 100755
+--- a/modules/check_mk.py
++++ b/modules/check_mk.py
+@@ -1217,6 +1217,26 @@ def extra_service_conf_of(hostname, description):
+     conf += extra_conf_of(extra_service_conf, hostname, description)
+     return conf
+ 
++# Collect all extra configuration data for a service using dict
++def extra_service_conf_of_dict(hostname, description):
++    global contactgroups_to_define
++    global servicegroups_to_define
++    conf = {}
++
++    # Contact groups
++    sercgr = service_extra_conf(hostname, description, service_contactgroups)
++    contactgroups_to_define.update(sercgr)
++    if len(sercgr) > 0:
++        conf["contact_groups"] = ",".join(sercgr)
++
++    sergr = service_extra_conf(hostname, description, service_groups)
++    if len(sergr) > 0:
++        conf["service_groups"] = ",".join(sergr)
++        if define_servicegroups:
++            servicegroups_to_define.update(sergr)
++    conf.update(extra_conf_of_dict(extra_service_conf, hostname, description))
++    return conf
++
+ def extra_summary_service_conf_of(hostname, description):
+     return extra_conf_of(extra_summary_service_conf, hostname, description)
+ 
+@@ -1232,6 +1252,17 @@ def extra_conf_of(confdict, hostname, service):
+             result += format % (key, values[0])
+     return result
+ 
++def extra_conf_of_dict(confdict, hostname, service):
++    result = {}
++    for key, conflist in confdict.items():
++        if service != None:
++            values = service_extra_conf(hostname, service, conflist)
++        else:
++            values = host_extra_conf(hostname, conflist)
++        if len(values) > 0:
++            result[key] = values[0]
++    return result
++
+ def check_icmp_arguments(hostname):
+     values = host_extra_conf(hostname, ping_levels)
+     levels = {}
 -- 
 1.7.11.2
 
