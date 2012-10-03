@@ -1,0 +1,65 @@
+From 77cad70b335e91164df67c623512e9266c66a701 Mon Sep 17 00:00:00 2001
+From: Dusty Little <dlittle@toyatech.net>
+Date: Wed, 3 Oct 2012 12:22:12 -0500
+Subject: [PATCH] Allow the 'use' and 'active_check_enabled' attributes to be
+ set via extra_service_conf for legacy checks
+
+---
+ modules/check_mk.py | 31 +++++++++++++++++++++++++++----
+ 1 file changed, 27 insertions(+), 4 deletions(-)
+
+diff --git a/modules/check_mk.py b/modules/check_mk.py
+index 4491a82..fa14550 100755
+--- a/modules/check_mk.py
++++ b/modules/check_mk.py
+@@ -1802,20 +1802,43 @@ define servicedependency {
+         else:
+             used_descriptions[description] = ( "legacy(" + command + ")", description )
+ 
+-        extraconf = extra_service_conf_of(hostname, description)
++        #extraconf = extra_service_conf_of(hostname, description)
++        # CHANGED: get extra configuration as a dictionary
++        extraconfdict = extra_service_conf_of_dict(hostname, description)
++
++        # The 'use' key is special because we have a default value for it.
++        if extraconfdict.has_key('use'):
++            use_template = extraconfdict['use']
++            del extraconfdict['use']
++        else:
++            use_template = 'check_mk_default'
++
++        # The 'active_checks_enabled' key is special because we have a default value for it.
++        if extraconfdict.has_key('active_checks_enabled'):
++            active_checks_enabled = extraconfdict['active_checks_enabled']
++            del extraconfdict['active_checks_enabled']
++        else:
++            active_checks_enabled = '1'
++
++        # If we have performance data, then we should ensure we use the performance data template.
+         if has_perfdata:
+             template = "check_mk_perf,"
+         else:
+             template = ""
++
++        # Here we generate extraconf based on the dictionary.
++        fmt = " %-29s %s\n"
++        extraconf = "".join(["  %-29s %s\n" % (x, extraconfdict[x]) for x in extraconfdict])
++
+         outfile.write("""
+ define service {
+-  use\t\t\t\t%scheck_mk_default
++  use\t\t\t\t%s%s
+   host_name\t\t\t%s
+   service_description\t\t%s
+   check_command\t\t\t%s
+-  active_checks_enabled\t\t1
++  active_checks_enabled\t\t%s
+ %s}
+-""" % (template, hostname, description, simulate_command(command), extraconf))
++""" % (template, use_template, hostname, description, simulate_command(command), active_checks_enabled, extraconf))
+ 
+     # legacy checks via active_checks
+     actchecks = []
+-- 
+1.7.11.2
+
